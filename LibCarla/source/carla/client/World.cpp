@@ -11,6 +11,7 @@
 #include "carla/client/ActorBlueprint.h"
 #include "carla/client/ActorList.h"
 #include "carla/client/detail/Simulator.h"
+#include "carla/StringUtil.h"
 
 #include <exception>
 
@@ -105,12 +106,48 @@ namespace client {
     _episode.Lock()->RemoveOnTickEvent(callback_id);
   }
 
-  uint64_t World::Tick() {
-    return _episode.Lock()->Tick();
+  uint64_t World::Tick(time_duration timeout) {
+    return _episode.Lock()->Tick(timeout);
   }
 
   void World::SetPedestriansCrossFactor(float percentage) {
     _episode.Lock()->SetPedestriansCrossFactor(percentage);
+  }
+
+  SharedPtr<Actor> World::GetTrafficSign(const Landmark& landmark) const {
+    SharedPtr<ActorList> actors = GetActors();
+    SharedPtr<TrafficSign> result;
+    std::string landmark_id = landmark.GetId();
+    for (size_t i = 0; i < actors->size(); i++) {
+      SharedPtr<Actor> actor = actors->at(i);
+      if (StringUtil::Match(actor->GetTypeId(), "*traffic.*")) {
+        TrafficSign* sign = static_cast<TrafficSign*>(actor.get());
+        if(sign && (sign->GetSignId() == landmark_id)) {
+          return actor;
+        }
+      }
+    }
+    return nullptr;
+  }
+
+  SharedPtr<Actor> World::GetTrafficLight(const Landmark& landmark) const {
+    SharedPtr<ActorList> actors = GetActors();
+    SharedPtr<TrafficLight> result;
+    std::string landmark_id = landmark.GetId();
+    for (size_t i = 0; i < actors->size(); i++) {
+      SharedPtr<Actor> actor = actors->at(i);
+      if (StringUtil::Match(actor->GetTypeId(), "*traffic_light*")) {
+        TrafficLight* tl = static_cast<TrafficLight*>(actor.get());
+        if(tl && (tl->GetSignId() == landmark_id)) {
+          return actor;
+        }
+      }
+    }
+    return nullptr;
+  }
+
+  SharedPtr<LightManager> World::GetLightManager() const {
+    return _episode.Lock()->GetLightManager();
   }
 
 } // namespace client

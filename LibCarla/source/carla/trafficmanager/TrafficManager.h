@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma
+// Copyright (c) 2020 Computer Vision Center (CVC) at the Universitat Autonoma
 // de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
@@ -6,152 +6,246 @@
 
 #pragma once
 
-#include <algorithm>
-#include <memory>
-#include <random>
-#include <unordered_set>
+#include <map>
+#include <mutex>
 #include <vector>
 
 #include "carla/client/Actor.h"
-#include "carla/client/BlueprintLibrary.h"
-#include "carla/client/Map.h"
-#include "carla/client/World.h"
-#include "carla/geom/Transform.h"
-#include "carla/Logging.h"
-#include "carla/Memory.h"
-
-#include "carla/trafficmanager/AtomicActorSet.h"
-#include "carla/trafficmanager/AtomicMap.h"
-#include "carla/trafficmanager/BatchControlStage.h"
-#include "carla/trafficmanager/CarlaDataAccessLayer.h"
-#include "carla/trafficmanager/CollisionStage.h"
-#include "carla/trafficmanager/InMemoryMap.h"
-#include "carla/trafficmanager/LocalizationStage.h"
-#include "carla/trafficmanager/MotionPlannerStage.h"
-#include "carla/trafficmanager/Parameters.h"
-#include "carla/trafficmanager/TrafficLightStage.h"
+#include "carla/trafficmanager/TrafficManagerBase.h"
 
 namespace carla {
 namespace traffic_manager {
 
-  namespace cc = carla::client;
+using ActorPtr = carla::SharedPtr<carla::client::Actor>;
 
-  using ActorPtr = carla::SharedPtr<cc::Actor>;
-  using TLS = carla::rpc::TrafficLightState;
-  using TLGroup = std::vector<carla::SharedPtr<cc::TrafficLight>>;
+/// This class integrates all the various stages of
+/// the traffic manager appropriately using messengers.
+class TrafficManager {
 
-  /// The function of this class is to integrate all the various stages of
-  /// the traffic manager appropriately using messengers.
-  class TrafficManager {
+public:
+  /// Public constructor for singleton life cycle management.
+  explicit TrafficManager(
+    carla::client::detail::EpisodeProxy episode_proxy,
+    uint16_t port = TM_DEFAULT_PORT);
 
-  private:
+  TrafficManager(const TrafficManager& other) {
+    _port = other._port;
+  }
 
-    /// PID controller parameters.
-    std::vector<float> longitudinal_PID_parameters;
-    std::vector<float> longitudinal_highway_PID_parameters;
-    std::vector<float> lateral_PID_parameters;
-    std::vector<float> lateral_highway_PID_parameters;
-    /// Set of all actors registered with traffic manager.
-    AtomicActorSet registered_actors;
-    /// Pointer to local map cache.
-    std::shared_ptr<InMemoryMap> local_map;
-    /// Carla's client connection object.
-    cc::Client client_connection;
-    /// Carla's world object.
-    cc::World world;
-    /// Carla's debug helper object.
-    cc::DebugHelper debug_helper;
-    /// Pointers to messenger objects connecting stage pairs.
-    std::shared_ptr<CollisionToPlannerMessenger> collision_planner_messenger;
-    std::shared_ptr<LocalizationToCollisionMessenger> localization_collision_messenger;
-    std::shared_ptr<LocalizationToTrafficLightMessenger> localization_traffic_light_messenger;
-    std::shared_ptr<LocalizationToPlannerMessenger> localization_planner_messenger;
-    std::shared_ptr<PlannerToControlMessenger> planner_control_messenger;
-    std::shared_ptr<TrafficLightToPlannerMessenger> traffic_light_planner_messenger;
-    /// Pointers to the stage objects of traffic manager.
-    std::unique_ptr<CollisionStage> collision_stage;
-    std::unique_ptr<BatchControlStage> control_stage;
-    std::unique_ptr<LocalizationStage> localization_stage;
-    std::unique_ptr<MotionPlannerStage> planner_stage;
-    std::unique_ptr<TrafficLightStage> traffic_light_stage;
-    /// Static pointer to singleton object.
-    static std::unique_ptr<TrafficManager> singleton_pointer;
-    /// Static pointer to singleton client connected to localhost, 2000.
-    static std::unique_ptr<cc::Client> singleton_local_client;
-    /// Parameterization object.
-    Parameters parameters;
+  TrafficManager() {};
 
-    /// Private constructor for singleton lifecycle management.
-    TrafficManager(
-        std::vector<float> longitudinal_PID_parameters,
-        std::vector<float> longitudinal_highway_PID_parameters,
-        std::vector<float> lateral_PID_parameters,
-        std::vector<float> lateral_highway_PID_parameters,
-        float perc_decrease_from_limit,
-        cc::Client &client_connection);
+  TrafficManager(TrafficManager &&) = default;
 
-    /// To start the TrafficManager.
-    void Start();
+  TrafficManager &operator=(const TrafficManager &) = default;
+  TrafficManager &operator=(TrafficManager &&) = default;
 
-    /// To stop the TrafficManager.
-    void Stop();
+  static void Release();
 
-  public:
+  static void Reset();
 
-    /// Static method for singleton lifecycle management.
-    static TrafficManager& GetInstance(cc::Client &client_connection);
+  static void Tick();
 
-    /// Static method to get unique client connected to (localhost, 2000).
-    static cc::Client& GetUniqueLocalClient();
+  uint16_t Port() const {
+    return _port;
+  }
 
-    /// This method registers a vehicle with the traffic manager.
-    void RegisterVehicles(const std::vector<ActorPtr> &actor_list);
+  bool IsValidPort() const {
+    // The first 1024 ports are reserved by the OS
+    return (_port > 1023);
+  }
 
-    /// This method unregisters a vehicle from traffic manager.
-    void UnregisterVehicles(const std::vector<ActorPtr> &actor_list);
+  /// This method sets the hybrid physics mode.
+  void SetHybridPhysicsMode(const bool mode_switch) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetHybridPhysicsMode(mode_switch);
+    }
+  }
 
-    /// This method kills a vehicle.
-    void DestroyVehicle(const ActorPtr &actor);
+  /// This method sets the hybrid physics radius.
+  void SetHybridPhysicsRadius(const float radius) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetHybridPhysicsRadius(radius);
+    }
+  }
 
-    /// Set target velocity specific to a vehicle.
-    void SetPercentageSpeedDifference(const ActorPtr &actor, const float percentage);
+  /// This method registers a vehicle with the traffic manager.
+  void RegisterVehicles(const std::vector<ActorPtr> &actor_list) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->RegisterVehicles(actor_list);
+    }
+  }
 
-    /// Set global target velocity.
-    void SetGlobalPercentageSpeedDifference(float const percentage);
+  /// This method unregisters a vehicle from traffic manager.
+  void UnregisterVehicles(const std::vector<ActorPtr> &actor_list) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->UnregisterVehicles(actor_list);
+    }
+  }
 
-    /// Set collision detection rules between vehicles.
-    void SetCollisionDetection(
-        const ActorPtr &reference_actor,
-        const ActorPtr &other_actor,
-        const bool detect_collision);
+  /// Set a vehicle's % decrease in velocity with respect to the speed limit.
+  /// If less than 0, it's a % increase.
+  void SetPercentageSpeedDifference(const ActorPtr &actor, const float percentage) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetPercentageSpeedDifference(actor, percentage);
+    }
+  }
 
-    /// Method to force lane change on a vehicle.
-    /// Direction flag can be set to true for left and false for right.
-    void SetForceLaneChange(const ActorPtr &actor, const bool direction);
+  /// Set a global % decrease in velocity with respect to the speed limit.
+  /// If less than 0, it's a % increase.
+  void SetGlobalPercentageSpeedDifference(float const percentage){
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetGlobalPercentageSpeedDifference(percentage);
+    }
+  }
 
-    /// Enable / disable automatic lane change on a vehicle.
-    void SetAutoLaneChange(const ActorPtr &actor, const bool enable);
+  /// Method to set collision detection rules between vehicles.
+  void SetCollisionDetection(const ActorPtr &reference_actor, const ActorPtr &other_actor, const bool detect_collision) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetCollisionDetection(reference_actor, other_actor, detect_collision);
+    }
+  }
 
-    /// Method to specify how much distance a vehicle should maintain to
-    /// the leading vehicle.
-    void SetDistanceToLeadingVehicle(const ActorPtr &actor, const float distance);
+  /// Method to force lane change on a vehicle.
+  /// Direction flag can be set to true for left and false for right.
+  void SetForceLaneChange(const ActorPtr &actor, const bool direction) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetForceLaneChange(actor, direction);
+    }
+  }
 
-    /// Method to specify the % chance of ignoring collisions with other actors
-    void SetPercentageIgnoreActors(const ActorPtr &actor, const float perc);
+  /// Enable/disable automatic lane change on a vehicle.
+  void SetAutoLaneChange(const ActorPtr &actor, const bool enable) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetAutoLaneChange(actor, enable);
+    }
+  }
 
-    /// Method to specify the % chance of running a red light
-    void SetPercentageRunningLight(const ActorPtr &actor, const float perc);
+  /// Method to specify how much distance a vehicle should maintain to
+  /// the leading vehicle.
+  void SetDistanceToLeadingVehicle(const ActorPtr &actor, const float distance) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetDistanceToLeadingVehicle(actor, distance);
+    }
+  }
 
-    /// Method to check if traffic lights are frozen.
-    bool CheckAllFrozen(TLGroup tl_to_freeze);
+  /// Method to specify the % chance of ignoring collisions with any walker.
+  void SetPercentageIgnoreWalkers(const ActorPtr &actor, const float perc) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetPercentageIgnoreWalkers(actor, perc);
+    }
+  }
 
-    /// Method to reset all traffic lights.
-    void ResetAllTrafficLights();
+  /// Method to specify the % chance of ignoring collisions with any vehicle.
+  void SetPercentageIgnoreVehicles(const ActorPtr &actor, const float perc) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetPercentageIgnoreVehicles(actor, perc);
+    }
+  }
 
-    /// Destructor.
-    ~TrafficManager();
+  /// Method to specify the % chance of running a sign.
+  void SetPercentageRunningSign(const ActorPtr &actor, const float perc) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetPercentageRunningSign(actor, perc);
+    }
+  }
 
-  };
+  /// Method to specify the % chance of running a light.
+  void SetPercentageRunningLight(const ActorPtr &actor, const float perc){
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetPercentageRunningLight(actor, perc);
+    }
+  }
+
+  /// Method to reset all traffic lights.
+  void ResetAllTrafficLights() {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->ResetAllTrafficLights();
+    }
+  }
+
+  /// Method to switch traffic manager into synchronous execution.
+  void SetSynchronousMode(bool mode) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetSynchronousMode(mode);
+    }
+  }
+
+  /// Method to set tick timeout for synchronous execution.
+  void SetSynchronousModeTimeOutInMiliSecond(double time) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetSynchronousModeTimeOutInMiliSecond(time);
+    }
+  }
+
+  /// Method to provide synchronous tick.
+  bool SynchronousTick() {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      return tm_ptr->SynchronousTick();
+    }
+    return false;
+  }
+
+  /// Method to Set Global distance to Leading vehicle
+  void SetGlobalDistanceToLeadingVehicle(const float distance) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetGlobalDistanceToLeadingVehicle(distance);
+    }
+  }
+
+  /// Method to set probabilistic preference to keep on the right lane.
+  void SetKeepRightPercentage(const ActorPtr &actor, const float percentage) {
+    TrafficManagerBase* tm_ptr = GetTM(_port);
+    if(tm_ptr != nullptr){
+      tm_ptr->SetKeepRightPercentage(actor, percentage);
+    }
+  }
+
+private:
+
+  void CreateTrafficManagerServer(
+    carla::client::detail::EpisodeProxy episode_proxy,
+    uint16_t port);
+
+
+  bool CreateTrafficManagerClient(
+    carla::client::detail::EpisodeProxy episode_proxy,
+    uint16_t port);
+
+  TrafficManagerBase* GetTM(uint16_t port) const {
+    std::lock_guard<std::mutex> lock(_mutex);
+    auto it = _tm_map.find(port);
+    if (it != _tm_map.end()) {
+      _mutex.unlock();
+      return it->second;
+    }
+    return nullptr;
+  }
+
+  static std::map<uint16_t, TrafficManagerBase*> _tm_map;
+  static std::mutex _mutex;
+
+  uint16_t _port = 0;
+
+};
 
 } // namespace traffic_manager
 } // namespace carla

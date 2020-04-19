@@ -1,10 +1,10 @@
-// Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma
+// Copyright (c) 2020 Computer Vision Center (CVC) at the Universitat Autonoma
 // de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
 // For a copy, see <https://opensource.org/licenses/MIT>.
 
-#include "SimpleWaypoint.h"
+#include "carla/trafficmanager/SimpleWaypoint.h"
 
 namespace carla {
 namespace traffic_manager {
@@ -20,6 +20,10 @@ namespace traffic_manager {
 
   std::vector<SimpleWaypointPtr> SimpleWaypoint::GetNextWaypoint() const {
     return next_waypoints;
+  }
+
+  std::vector<SimpleWaypointPtr> SimpleWaypoint::GetPreviousWaypoint() const {
+    return previous_waypoints;
   }
 
   WaypointPtr SimpleWaypoint::GetWaypoint() const {
@@ -50,28 +54,31 @@ namespace traffic_manager {
     for (auto &simple_waypoint: waypoints) {
       next_waypoints.push_back(simple_waypoint);
     }
-    return static_cast<uint>(waypoints.size());
+    return static_cast<uint64_t>(waypoints.size());
   }
 
-  void SimpleWaypoint::SetLeftWaypoint(SimpleWaypointPtr _waypoint) {
+  uint64_t SimpleWaypoint::SetPreviousWaypoint(const std::vector<SimpleWaypointPtr> &waypoints) {
+    for (auto &simple_waypoint: waypoints) {
+      previous_waypoints.push_back(simple_waypoint);
+    }
+    return static_cast<uint64_t>(waypoints.size());
+  }
+
+  void SimpleWaypoint::SetLeftWaypoint(SimpleWaypointPtr &_waypoint) {
 
     const cg::Vector3D heading_vector = waypoint->GetTransform().GetForwardVector();
     const cg::Vector3D relative_vector = GetLocation() - _waypoint->GetLocation();
     if ((heading_vector.x * relative_vector.y - heading_vector.y * relative_vector.x) > 0.0f) {
       next_left_waypoint = _waypoint;
-    } else {
-      throw std::invalid_argument("Argument not on the left side!");
     }
   }
 
-  void SimpleWaypoint::SetRightWaypoint(SimpleWaypointPtr _waypoint) {
+  void SimpleWaypoint::SetRightWaypoint(SimpleWaypointPtr &_waypoint) {
 
     const cg::Vector3D heading_vector = waypoint->GetTransform().GetForwardVector();
     const cg::Vector3D relative_vector = GetLocation() - _waypoint->GetLocation();
     if ((heading_vector.x * relative_vector.y - heading_vector.y * relative_vector.x) < 0.0f) {
       next_right_waypoint = _waypoint;
-    } else {
-      throw std::invalid_argument("Argument not on the right side!");
     }
   }
 
@@ -92,11 +99,37 @@ namespace traffic_manager {
   }
 
   bool SimpleWaypoint::CheckJunction() const {
-    return waypoint->IsJunction();
+    return _is_junction;
+  }
+
+  void SimpleWaypoint::SetIsJunction(bool value) {
+    _is_junction = value;
   }
 
   bool SimpleWaypoint::CheckIntersection() const {
     return (next_waypoints.size() > 1);
+  }
+
+  void SimpleWaypoint::SetGeodesicGridId(GeoGridId _geodesic_grid_id) {
+    geodesic_grid_id = _geodesic_grid_id;
+  }
+
+  GeoGridId SimpleWaypoint::GetGeodesicGridId() {
+    GeoGridId grid_id;
+    if (waypoint->IsJunction()) {
+      grid_id = waypoint->GetJunctionId();
+    } else {
+      grid_id = geodesic_grid_id;
+    }
+    return grid_id;
+  }
+
+  GeoGridId SimpleWaypoint::GetJunctionId() const {
+    return waypoint->GetJunctionId();
+  }
+
+  cg::Transform SimpleWaypoint::GetTransform() const {
+    return waypoint->GetTransform();
   }
 
 } // namespace traffic_manager

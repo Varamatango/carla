@@ -9,10 +9,13 @@ launch: LibCarla.server.release
 launch-only:
 	@${CARLA_BUILD_TOOLS_FOLDER}/BuildCarlaUE4.sh --launch $(ARGS)
 
-import: CarlaUE4Editor
+import: CarlaUE4Editor PythonAPI
 	@${CARLA_BUILD_TOOLS_FOLDER}/Import.py $(ARGS)
 
-package: CarlaUE4Editor PythonAPI
+package: CarlaUE4Editor PythonAPI.rebuild
+	@${CARLA_BUILD_TOOLS_FOLDER}/Package.sh $(ARGS)
+
+package.rss: CarlaUE4Editor PythonAPI.rss.rebuild
 	@${CARLA_BUILD_TOOLS_FOLDER}/Package.sh $(ARGS)
 
 docs:
@@ -70,7 +73,7 @@ examples:
 	@for D in ${CARLA_EXAMPLES_FOLDER}/*; do [ -d "$${D}" ] && make -C $${D} build; done
 
 run-examples:
-	@for D in ${CARLA_EXAMPLES_FOLDER}/*; do [ -d "$${D}" ] && make -C $${D} run; done
+	@for D in ${CARLA_EXAMPLES_FOLDER}/*; do [ -d "$${D}" ] && make -C $${D} run.only; done
 
 CarlaUE4Editor: LibCarla.server.release
 	@${CARLA_BUILD_TOOLS_FOLDER}/BuildCarlaUE4.sh --build
@@ -85,6 +88,9 @@ PythonAPI.2: LibCarla.client.release
 PythonAPI.3: LibCarla.client.release
 	@${CARLA_BUILD_TOOLS_FOLDER}/BuildPythonAPI.sh --py3
 
+PythonAPI.rebuild: LibCarla.client.release
+	@${CARLA_BUILD_TOOLS_FOLDER}/BuildPythonAPI.sh --rebuild
+
 PythonAPI.rss: LibCarla.client.rss.release
 	@${CARLA_BUILD_TOOLS_FOLDER}/BuildPythonAPI.sh --py2 --py3 --rss
 
@@ -93,6 +99,9 @@ PythonAPI.rss.2: LibCarla.client.rss.release
 
 PythonAPI.rss.3: LibCarla.client.rss.release
 	@${CARLA_BUILD_TOOLS_FOLDER}/BuildPythonAPI.sh --py3 --rss
+
+PythonAPI.rss.rebuild: LibCarla.client.rss.release
+	@${CARLA_BUILD_TOOLS_FOLDER}/BuildPythonAPI.sh --rebuild --rss
 
 PythonAPI.docs:
 	@python PythonAPI/docs/doc_gen.py
@@ -134,5 +143,5 @@ deploy:
 pretty:
 	@${CARLA_BUILD_TOOLS_FOLDER}/Prettify.sh $(ARGS)
 
-build.utils:
+build.utils: PythonAPI
 	@${CARLA_BUILD_TOOLS_FOLDER}/BuildUtilsDocker.sh

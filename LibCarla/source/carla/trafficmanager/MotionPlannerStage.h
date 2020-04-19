@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma
+// Copyright (c) 2020 Computer Vision Center (CVC) at the Universitat Autonoma
 // de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
@@ -7,16 +7,19 @@
 #pragma once
 
 #include <chrono>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 #include "carla/client/Vehicle.h"
+#include "carla/geom/Math.h"
 #include "carla/rpc/Actor.h"
 
 #include "carla/trafficmanager/MessengerAndDataTypes.h"
 #include "carla/trafficmanager/Parameters.h"
 #include "carla/trafficmanager/PIDController.h"
 #include "carla/trafficmanager/PipelineStage.h"
+#include "carla/trafficmanager/SimpleWaypoint.h"
 
 namespace carla {
 namespace traffic_manager {
@@ -26,23 +29,18 @@ namespace traffic_manager {
 
   using Actor = carla::SharedPtr<cc::Actor>;
   using ActorId = carla::rpc::ActorId;
+  using SimpleWaypointPtr = std::shared_ptr<SimpleWaypoint>;
 
   /// The class is responsible for aggregating information from various stages
   /// like the localization stage, traffic light stage, collision detection
-  /// stage
-  /// and actuation signals from the PID controller and makes decisions on
-  /// how to move the vehicle to follow it's trajectory safely.
+  /// stage and actuation signals from the PID controller and makes decisions
+  /// on how to move the vehicle to follow it's trajectory safely.
   class MotionPlannerStage : public PipelineStage {
 
   private:
 
     /// Selection key to switch between the output frames.
     bool frame_selector;
-    /// Variables to remember messenger states.
-    int localization_messenger_state;
-    int control_messenger_state;
-    int collision_messenger_state;
-    int traffic_light_messenger_state;
     /// Pointers to data frames to be shared with the batch control stage
     std::shared_ptr<PlannerToControlFrame> control_frame_a;
     std::shared_ptr<PlannerToControlFrame> control_frame_b;
@@ -73,7 +71,10 @@ namespace traffic_manager {
     uint64_t number_of_vehicles;
     /// Reference to Carla's debug helper object.
     cc::DebugHelper &debug_helper;
-
+    /// Switch indicating hybrid physics mode.
+    bool hybrid_physics_mode {false};
+    /// Teleportation duration clock;
+    std::unordered_map<ActorId, TimePoint> teleportation_instance;
 
   public:
 

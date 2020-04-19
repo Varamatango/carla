@@ -15,6 +15,7 @@
 #include "carla/rpc/DebugShape.h"
 #include "carla/rpc/Response.h"
 #include "carla/rpc/VehicleControl.h"
+#include "carla/rpc/VehicleLightState.h"
 #include "carla/rpc/WalkerBoneControl.h"
 #include "carla/rpc/WalkerControl.h"
 #include "carla/streaming/Client.h"
@@ -47,7 +48,7 @@ namespace detail {
       : endpoint(host + ":" + std::to_string(port)),
         rpc_client(host, port),
         streaming_client(host) {
-      rpc_client.set_timeout(1000u);
+      rpc_client.set_timeout(5000u);
       streaming_client.AsyncRun(
           worker_threads > 0u ? worker_threads : std::thread::hardware_concurrency());
     }
@@ -101,6 +102,22 @@ namespace detail {
       const size_t worker_threads)
     : _pimpl(std::make_unique<Pimpl>(host, port, worker_threads)) {}
 
+  bool Client::IsTrafficManagerRunning(uint16_t port) const {
+    return _pimpl->CallAndWait<bool>("is_traffic_manager_running", port);
+  }
+
+  std::pair<std::string, uint16_t> Client::GetTrafficManagerRunning(uint16_t port) const {
+    return _pimpl->CallAndWait<std::pair<std::string, uint16_t>>("get_traffic_manager_running", port);
+  };
+
+  bool Client::AddTrafficManagerRunning(std::pair<std::string, uint16_t> trafficManagerInfo) const {
+    return _pimpl->CallAndWait<bool>("add_traffic_manager_running", trafficManagerInfo);
+  };
+
+  void Client::DestroyTrafficManager(uint16_t port) const {
+    _pimpl->AsyncCall("destroy_traffic_manager", port);
+  }
+
   Client::~Client() = default;
 
   void Client::SetTimeout(time_duration timeout) {
@@ -111,7 +128,7 @@ namespace detail {
     return _pimpl->GetTimeout();
   }
 
-  const std::string &Client::GetEndpoint() const {
+  const std::string Client::GetEndpoint() const {
     return _pimpl->endpoint;
   }
 
@@ -126,6 +143,11 @@ namespace detail {
   void Client::LoadEpisode(std::string map_name) {
     // Await response, we need to be sure in this one.
     _pimpl->CallAndWait<void>("load_new_episode", std::move(map_name));
+  }
+
+  void Client::CopyOpenDriveToServer(std::string opendrive, const rpc::OpendriveGenerationParameters & params) {
+    // Await response, we need to be sure in this one.
+    _pimpl->CallAndWait<void>("copy_opendrive_to_file", std::move(opendrive), params);
   }
 
   rpc::EpisodeInfo Client::GetEpisodeInfo() {
@@ -175,14 +197,25 @@ namespace detail {
   }
 
   rpc::VehiclePhysicsControl Client::GetVehiclePhysicsControl(
-      const rpc::ActorId &vehicle) const {
+      rpc::ActorId vehicle) const {
     return _pimpl->CallAndWait<carla::rpc::VehiclePhysicsControl>("get_physics_control", vehicle);
   }
 
+  rpc::VehicleLightState Client::GetVehicleLightState(
+      rpc::ActorId vehicle) const {
+    return _pimpl->CallAndWait<carla::rpc::VehicleLightState>("get_vehicle_light_state", vehicle);
+  }
+
   void Client::ApplyPhysicsControlToVehicle(
-      const rpc::ActorId &vehicle,
+      rpc::ActorId vehicle,
       const rpc::VehiclePhysicsControl &physics_control) {
     return _pimpl->AsyncCall("apply_physics_control", vehicle, physics_control);
+  }
+
+  void Client::SetLightStateToVehicle(
+      rpc::ActorId vehicle,
+      const rpc::VehicleLightState &light_state) {
+    return _pimpl->AsyncCall("apply_vehicle_light_state", vehicle, light_state);
   }
 
   rpc::Actor Client::SpawnActor(
@@ -274,7 +307,7 @@ namespace detail {
     _pimpl->AsyncCall("freeze_traffic_light", traffic_light, freeze);
   }
 
-  std::vector<ActorId> Client::GetGroupTrafficLights(const rpc::ActorId &traffic_light) {
+  std::vector<ActorId> Client::GetGroupTrafficLights(rpc::ActorId traffic_light) {
     using return_t = std::vector<ActorId>;
     return _pimpl->CallAndWait<return_t>("get_group_traffic_lights", traffic_light);
   }
@@ -307,6 +340,10 @@ namespace detail {
     _pimpl->AsyncCall("set_replayer_time_factor", time_factor);
   }
 
+  void Client::SetReplayerIgnoreHero(bool ignore_hero) {
+    _pimpl->AsyncCall("set_replayer_ignore_hero", ignore_hero);
+  }
+
   void Client::SubscribeToStream(
       const streaming::Token &token,
       std::function<void(Buffer)> callback) {
@@ -334,6 +371,15 @@ namespace detail {
 
   uint64_t Client::SendTickCue() {
     return _pimpl->CallAndWait<uint64_t>("tick_cue");
+  }
+
+  std::vector<rpc::LightState> Client::QueryLightsStateToServer() const {
+    using return_t = std::vector<rpc::LightState>;
+    return _pimpl->CallAndWait<return_t>("query_lights_state", _pimpl->endpoint);
+  }
+
+  void Client::UpdateServerLightsState(std::vector<rpc::LightState>& lights, bool discard_client) const {
+    _pimpl->AsyncCall("update_lights_state", _pimpl->endpoint, std::move(lights), discard_client);
   }
 
 } // namespace detail

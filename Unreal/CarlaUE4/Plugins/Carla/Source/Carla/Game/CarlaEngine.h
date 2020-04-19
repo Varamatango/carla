@@ -39,15 +39,19 @@ public:
 
 private:
 
-  void OnPreTick(ELevelTick TickType, float DeltaSeconds);
+  void OnPreTick(UWorld *World, ELevelTick TickType, float DeltaSeconds);
 
   void OnPostTick(UWorld *World, ELevelTick TickType, float DeltaSeconds);
 
   void OnEpisodeSettingsChanged(const FEpisodeSettings &Settings);
 
+  void ResetSimulationState();
+
   bool bIsRunning = false;
 
   bool bSynchronousMode = false;
+
+  bool bMapChanged = false;
 
   FCarlaServer Server;
 

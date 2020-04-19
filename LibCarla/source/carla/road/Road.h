@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Computer Vision Center (CVC) at the Universitat Autonoma
+// Copyright (c) 2020 Computer Vision Center (CVC) at the Universitat Autonoma
 // de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
@@ -6,21 +6,18 @@
 
 #pragma once
 
+#include "carla/geom/Mesh.h"
 #include "carla/Iterator.h"
 #include "carla/ListView.h"
 #include "carla/NonCopyable.h"
+#include "carla/road/element/Geometry.h"
+#include "carla/road/element/RoadInfo.h"
 #include "carla/road/InformationSet.h"
-#include "carla/road/ObjectSet.h"
 #include "carla/road/Junction.h"
 #include "carla/road/LaneSection.h"
 #include "carla/road/LaneSectionMap.h"
 #include "carla/road/RoadElementSet.h"
 #include "carla/road/RoadTypes.h"
-#include "carla/road/element/Geometry.h"
-#include "carla/road/element/RoadInfo.h"
-#include "carla/road/element/RoadObject.h"
-#include "carla/road/signal/Signal.h"
-#include "carla/road/signal/SignalReference.h"
 
 #include <unordered_map>
 #include <vector>
@@ -53,6 +50,11 @@ namespace road {
 
     const Lane &GetLaneByDistance(double s, LaneId lane_id) const;
 
+    /// Get all lanes from all lane sections in a specific s
+    std::vector<Lane*> GetLanesByDistance(double s);
+
+    std::vector<const Lane*> GetLanesByDistance(double s) const;
+
     RoadId GetSuccessor() const;
 
     RoadId GetPredecessor() const;
@@ -76,14 +78,6 @@ namespace road {
     std::vector<Road *> GetPrevs() const;
 
     const geom::CubicPolynomial &GetElevationOn(const double s) const;
-
-    carla::road::signal::Signal *GetSignal(const SignId id);
-
-    carla::road::signal::SignalReference *GetSignalRef(const SignRefId id);
-
-    std::unordered_map<SignId, signal::Signal> *getSignals();
-
-    std::unordered_map<SignId, signal::SignalReference> *getSignalReferences();
 
     /// Returns a directed point on the center of the road (lane 0),
     /// with the corresponding laneOffset and elevation records applied,
@@ -116,13 +110,13 @@ namespace road {
     }
 
     template <typename T>
-    const T *GetObject(const double s) const {
-      return _objects.GetObject<T>(s);
+    std::vector<const T*> GetInfos() const {
+      return _info.GetInfos<T>();
     }
 
     template <typename T>
-    std::vector<const T *> GetObjects() const {
-      return _objects.GetObjects<T>();
+    std::vector<const T*> GetInfosInRange(const double min_s, const double max_s) const {
+      return _info.GetInfos<T>(min_s, max_s);
     }
 
     auto GetLaneSections() const {
@@ -206,13 +200,6 @@ namespace road {
     std::vector<Road *> _nexts;
 
     std::vector<Road *> _prevs;
-
-    std::unordered_map<SignId, signal::Signal> _signals;
-
-    std::unordered_map<SignRefId, signal::SignalReference> _sign_ref;
-
-    ObjectSet _objects;
-
   };
 
 } // road

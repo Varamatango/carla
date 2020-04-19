@@ -15,9 +15,11 @@
 #include "carla/trafficmanager/TrafficManager.h"
 
 namespace carla {
+
+using TM = traffic_manager::TrafficManager;
+
 namespace client {
 
-  using TM = traffic_manager::TrafficManager;
 
   template <typename AttributesT>
   static bool GetControlIsSticky(const AttributesT &attributes) {
@@ -33,10 +35,12 @@ namespace client {
     : Actor(std::move(init)),
       _is_control_sticky(GetControlIsSticky(GetAttributes())) {}
 
-  void Vehicle::SetAutopilot(bool enabled) {
+  void Vehicle::SetAutopilot(bool enabled, uint16_t tm_port) {
+    TM tm(GetEpisode(), tm_port);
     if (enabled) {
-      TM &tm = TM::GetInstance(TM::GetUniqueLocalClient());
       tm.RegisterVehicles({shared_from_this()});
+    } else {
+      tm.UnregisterVehicles({shared_from_this()});
     }
   }
 
@@ -51,12 +55,20 @@ namespace client {
     GetEpisode().Lock()->ApplyPhysicsControlToVehicle(*this, physics_control);
   }
 
+  void Vehicle::SetLightState(const LightState &light_state) {
+    GetEpisode().Lock()->SetLightStateToVehicle(*this, rpc::VehicleLightState(light_state));
+  }
+
   Vehicle::Control Vehicle::GetControl() const {
     return GetEpisode().Lock()->GetActorSnapshot(*this).state.vehicle_data.control;
   }
 
   Vehicle::PhysicsControl Vehicle::GetPhysicsControl() const {
     return GetEpisode().Lock()->GetVehiclePhysicsControl(*this);
+  }
+
+  Vehicle::LightState Vehicle::GetLightState() const {
+    return GetEpisode().Lock()->GetVehicleLightState(*this).GetLightStateEnum();
   }
 
   float Vehicle::GetSpeedLimit() const {

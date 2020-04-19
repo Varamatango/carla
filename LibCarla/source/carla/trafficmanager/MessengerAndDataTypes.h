@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma
+// Copyright (c) 2020 Computer Vision Center (CVC) at the Universitat Autonoma
 // de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
@@ -7,9 +7,13 @@
 #pragma once
 
 #include <memory>
+#include <tuple>
+#include <unordered_map>
 #include <vector>
 
 #include "carla/client/Actor.h"
+#include "carla/geom/Vector3D.h"
+#include "carla/geom/Transform.h"
 #include "carla/Memory.h"
 #include "carla/rpc/ActorId.h"
 
@@ -20,47 +24,62 @@ namespace carla {
 namespace traffic_manager {
 
   namespace cc = carla::client;
+  namespace cg = carla::geom;
 
   /// Convenience typing.
 
   /// Alias for waypoint buffer used in the localization stage.
   using Buffer = std::deque<std::shared_ptr<SimpleWaypoint>>;
   /// Alias used for the list of buffers in the localization stage.
-  using BufferList = std::vector<Buffer>;
+  using BufferList = std::unordered_map<carla::ActorId, Buffer>;
+
+  using Actor = carla::SharedPtr<cc::Actor>;
+  using ActorId = carla::ActorId;
 
   /// Data types.
 
   /// Type of data sent by the localization stage to the motion planner stage.
   struct LocalizationToPlannerData {
-    carla::SharedPtr<cc::Actor> actor;
+    Actor actor;
     float deviation;
     float distance;
     bool approaching_true_junction;
+    cg::Vector3D velocity;
+    bool physics_enabled;
+    std::vector<std::shared_ptr<SimpleWaypoint>> position_window;
   };
 
   /// Type of data sent by the motion planner stage to the batch control stage.
   struct PlannerToControlData {
-    carla::ActorId actor_id;
+    Actor actor;
     float throttle;
     float brake;
     float steer;
+    bool physics_enabled;
+    cg::Transform transform;
   };
 
   /// Type of data sent by the localization stage to the collision stage.
   struct LocalizationToCollisionData {
-    carla::SharedPtr<cc::Actor> actor;
+    Actor actor;
     Buffer buffer;
-    std::unordered_set<carla::ActorId> overlapping_actors;
+    std::vector<std::tuple<ActorId, Actor, cg::Vector3D>> overlapping_actors;
+    std::shared_ptr<SimpleWaypoint> safe_point_after_junction;
+    std::shared_ptr<SimpleWaypoint> closest_waypoint;
+    std::shared_ptr<SimpleWaypoint> junction_look_ahead_waypoint;
+    cg::Vector3D velocity;
   };
 
   /// Type of data sent by the collision stage to the motion planner stage.
   struct CollisionToPlannerData {
     bool hazard;
+    float distance_to_other_vehicle;
+    cg::Vector3D other_vehicle_velocity;
   };
 
   /// Type of data sent by the localization stage to the traffic light stage.
   struct LocalizationToTrafficLightData {
-    carla::SharedPtr<cc::Actor> actor;
+    Actor actor;
     std::shared_ptr<SimpleWaypoint> closest_waypoint;
     std::shared_ptr<SimpleWaypoint> junction_look_ahead_waypoint;
   };

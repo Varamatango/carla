@@ -81,11 +81,19 @@ if exist "%BOOST_INSTALL_DIR%" (
 if not exist "%BOOST_SRC_DIR%" (
     if not exist "%BOOST_TEMP_FILE_DIR%" (
         echo %FILE_N% Retrieving boost.
-        powershell -Command "Start-BitsTransfer -Source '%BOOST_REPO%' -Destination '%BOOST_TEMP_FILE_DIR%'"
+        powershell -Command "(New-Object System.Net.WebClient).DownloadFile('%BOOST_REPO%', '%BOOST_TEMP_FILE_DIR%')"
     )
-    echo %FILE_N% Extracting boost from "%BOOST_TEMP_FILE%", this can take a while...
-    powershell -Command "Expand-Archive '%BOOST_TEMP_FILE_DIR%' -DestinationPath '%BUILD_DIR%'"
+    if not exist "%BOOST_TEMP_FILE_DIR%" (
+        echo %FILE_N% Using Boost backup        
+        powershell -Command "(New-Object System.Net.WebClient).DownloadFile('https://carla-releases.s3.eu-west-3.amazonaws.com/Backup/%BOOST_TEMP_FILE%', '%BOOST_TEMP_FILE_DIR%')"
+    )
     if %errorlevel% neq 0 goto error_download
+    echo %FILE_N% Extracting boost from "%BOOST_TEMP_FILE%", this can take a while...
+    if exist "%ProgramW6432%/7-Zip/7z.exe" (
+        "%ProgramW6432%/7-Zip/7z.exe" x "%BOOST_TEMP_FILE_DIR%" -o"%BUILD_DIR%" -y
+    ) else (
+        powershell -Command "Expand-Archive '%BOOST_TEMP_FILE_DIR%' -DestinationPath '%BUILD_DIR%' -Force"
+    )
     echo %FILE_N% Removing "%BOOST_TEMP_FILE%"
     del "%BOOST_TEMP_FILE_DIR:/=\%"
     rename "%BUILD_DIR%%BOOST_TEMP_FOLDER%" "%BOOST_BASENAME%-source"

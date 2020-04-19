@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Computer Vision Center (CVC) at the Universitat Autonoma
+// Copyright (c) 2020 Computer Vision Center (CVC) at the Universitat Autonoma
 // de Barcelona (UAB).
 //
 // This work is licensed under the terms of the MIT license.
@@ -44,9 +44,6 @@ namespace traffic_manager {
 
   private:
 
-    /// Variables to remember messenger states.
-    int localization_messenger_state;
-    int planner_messenger_state;
     /// Selection key to switch between output frames.
     bool frame_selector;
     /// Pointer data frame received from localization stage.

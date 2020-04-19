@@ -176,11 +176,19 @@ void export_geom() {
     .def(self_ns::str(self_ns::self))
   ;
 
+  class_<std::vector<cg::Transform>>("vector_of_transform")
+      .def(boost::python::vector_indexing_suite<std::vector<cg::Transform>>())
+      .def(self_ns::str(self_ns::self))
+  ;
+
   class_<cg::BoundingBox>("BoundingBox")
     .def(init<cg::Location, cg::Vector3D>(
         (arg("location")=cg::Location(), arg("extent")=cg::Vector3D())))
     .def_readwrite("location", &cg::BoundingBox::location)
     .def_readwrite("extent", &cg::BoundingBox::extent)
+    .def("contains", &cg::BoundingBox::Contains, arg("point"), arg("bbox_transform"))
+    .def("get_local_vertices", CALL_RETURNING_LIST(cg::BoundingBox, GetLocalVertices))
+    .def("get_world_vertices", CALL_RETURNING_LIST_1(cg::BoundingBox, GetWorldVertices, const cg::Transform&), arg("bbox_transform"))
     .def("__eq__", &cg::BoundingBox::operator==)
     .def("__ne__", &cg::BoundingBox::operator!=)
     .def(self_ns::str(self_ns::self))

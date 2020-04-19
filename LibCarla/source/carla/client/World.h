@@ -9,6 +9,8 @@
 #include "carla/Memory.h"
 #include "carla/Time.h"
 #include "carla/client/DebugHelper.h"
+#include "carla/client/Landmark.h"
+#include "carla/client/LightManager.h"
 #include "carla/client/Timestamp.h"
 #include "carla/client/WorldSnapshot.h"
 #include "carla/client/detail/EpisodeProxy.h"
@@ -19,7 +21,7 @@
 #include "carla/rpc/VehiclePhysicsControl.h"
 #include "carla/rpc/WeatherParameters.h"
 
-#include <optional>
+#include <boost/optional.hpp>
 
 namespace carla {
 namespace client {
@@ -29,11 +31,15 @@ namespace client {
   class ActorList;
   class BlueprintLibrary;
   class Map;
+  class TrafficLight;
+  class TrafficSign;
 
   class World {
   public:
 
     explicit World(detail::EpisodeProxy episode) : _episode(std::move(episode)) {}
+
+    ~World(){}
 
     World(const World &) = default;
     World(World &&) = default;
@@ -115,7 +121,7 @@ namespace client {
     /// synchronous mode).
     ///
     /// @return The id of the frame that this call started.
-    uint64_t Tick();
+    uint64_t Tick(time_duration timeout);
 
     /// set the probability that an agent could cross the roads in its path following
     /// percentage of 0.0f means no pedestrian can cross roads
@@ -123,9 +129,19 @@ namespace client {
     /// percentage of 1.0f means all pedestrians can cross roads if needed
     void SetPedestriansCrossFactor(float percentage);
 
+    SharedPtr<Actor> GetTrafficSign(const Landmark& landmark) const;
+
+    SharedPtr<Actor> GetTrafficLight(const Landmark& landmark) const;
+
+    SharedPtr<LightManager> GetLightManager() const;
+
     DebugHelper MakeDebugHelper() const {
       return DebugHelper{_episode};
     }
+
+    detail::EpisodeProxy GetEpisode() const {
+      return _episode;
+    };
 
   private:
 

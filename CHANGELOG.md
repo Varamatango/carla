@@ -1,12 +1,81 @@
+## Latest
+
+  * Introduced hybrid mode for Traffic Manager
+  * Upgraded to Unreal Engine 4.24
+  * Fixed autonomous agents' incorrect detection of red traffic lights affecting them
+  * Improved manual_control by adding realistic throttle and brake
+  * Added walkable pedestrian crosswalks in OpenDRIVE standalone mode
+  * Improved mesh generation with a chunk system for better performance and bigger maps in the future
+  * Added security features to the standalone OpenDRIVE mode aiming to prevent cars from falling down from the road
+  * Added junction smoothing algorithm to prevent roads from blocking other roads with level differences
+  * Added new Behavior agent
+  * Added automatic generation of traffic lights, stop signal and yield signal from OpenDRIVE file
+  * Upgraded to AD RSS v3.0.0 supporting complex road layouts and i.e. intersections
+  * Added examples of sumo co-simulation for Town01, Town04 and Town05
+  * Added ptv vissim and carla co-simulation
+  * API extensions:
+    - Added new methods to `Map`: `get_all_landmarks`, `get_all_landmarks_from_id` and `get_all_landmarks_of_type`
+  * Added synchronization of traffic lights in sumo co-simulation
+  * Added light manager to control the lights of the map.
+
+## CARLA 0.9.8
+
+  * Added beta version sumo-carla co-simulation
+  * Traffic Manager:
+    - Added benchmark
+    - Added synchronous mode
+    - Fixed change map error
+    - Added multiclient architecture
+    - Added multi Traffic Manager architecture
+    - Fixed linkage between waypoints
+    - Implemented intersection anticipation
+    - Implemented vehicle destruction when stuck
+    - Implemented tunable parameters
+    - Revamped lane changes
+  * Added landmark class for signal-related queries
+  * Added support to parse OpenDRIVE signals
+  * Added junction class as queryable object from waypoint
+  * Added timeout to World Tick
+  * Added simple physical map generation from standalone OpenDRIVE data
+  * Added support for generating walker navigation on server-side
+  * Added support for new geometry: `spiral`, `poly3`, and `paramPoly3`
+  * Improved `get_waypoint(location)` performance
+  * New weather system: night time, fog, rain ripples, and now wind affects vegetation and rain (not car physics)
+  * Fixed Low/Epic quality settings transition
+  * Enabled Mesh distance fields
+  * API extensions:
+    - Added new methods to `BoundingBox`: `contains()`, `get_local_vertices()` and `get_world_vertices(transform)`
+    - Added new function to get a waypoint specifying parameters from the OpenDRIVE: `map.get_waypoint_xodr(road_id, lane_id, s)`
+    - Added 3 new parameters for the `carla.Weather`: `fog_density`, `fog_distance`, and (ground) `wetness`
+    - Added `carla.client.generate_opendrive_world(opendrive)` that loads a map with custom OpenDRIVE basic physical topology
+  * New python clients:
+    - `weather.py`: allows weather changes using the new weather parameters
+  * Fixed docker build of `.BIN` for pedestrian navigation
+  * Fixed `local_planner.py`: agent will now stop when it reaches the desired destination
+  * Fixed crash when missing elevation profile and lane offset in OpenDRIVE
+  * Fixed typos
+  * Fixed agent failures due to API changes in `is_within_distance_ahead()`
+  * Fixed assertion bug when using LibCarla
+  * Fixed incorrect doppler velocity for RADAR sensor
+  * Fixed documentation links
+  * Upgraded Boost to 1.72.0
+  * Recorder feature:
+    - Added an option `-i` to `start_replaying.py` to replay a session ignoreing the hero vehicles
+  * Fixed import pipeline bugs:
+    - Crash when no pedestrian navmesh is present
+    - Automatically imported static meshes not properly tagged
+  * Fixed PID controller's sensitivity to time discretization
+
 ## CARLA 0.9.7
 
+  * Upgraded parameters of Unreal/CarlaUE4/Config/DefaultInput.ini to prevent mouse freeze
   * Add build variant with AD RSS library integration with RSS sensor and result visualisation
   * Support for OpenGL and Vulkan in docker + headless mode
   * Added new sensor: Inertial measurement unit (IMU)
   * Added new sensor: Radar
   * Exposed rgb camera attributes: exposure, depth of field, tonemapper, color correction, and chromatic aberration
   * Now all the camera-based sensors are provided with an additional parametrized lens distortion shader
-  * Added TrafficManager to replace autopilot in managing the NPC vehicles
+  * Added Traffic Manager to replace autopilot in managing the NPC vehicles
   * Improved pedestrians navigation
   * API changes:
     - Lidar: `range` is now set in meters, not in centimeters
@@ -27,6 +96,7 @@
   * Fixed PointCloudIO `cout` that interfiered with other python modules
   * Better steering in manual control
   * Added Doxygen documentation online with automatic updates through Jenkins pipeline
+  * Fixed an error in `automatic_control.py` failing because the `Num Lock` key
   * Fixed client_bounding_boxes.py example script
   * Fixed materials and semantic segmentation issues regarding importing assets
   * Fixed ObstacleSensor to return HitDistance instead of HitRadius

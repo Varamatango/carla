@@ -25,9 +25,7 @@ namespace data {
     friend Serializer;
 
     explicit RawEpisodeState(RawData data)
-      : Super(std::move(data)) {
-      Super::SetOffset(Serializer::header_offset);
-    }
+      : Super(Serializer::header_offset, std::move(data)) {}
 
   private:
 
@@ -58,6 +56,12 @@ namespace data {
     double GetDeltaSeconds() const {
       return GetHeader().delta_seconds;
     }
+
+    /// Simulation state flags
+    Serializer::SimulationState GetSimulationState() const {
+      return GetHeader().simulation_state;
+    }
+
   };
 
 } // namespace data

@@ -79,10 +79,31 @@ namespace detail {
       _on_tick_callbacks.Remove(id);
     }
 
+    size_t RegisterOnMapChangeEvent(std::function<void(WorldSnapshot)> callback) {
+      return _on_map_change_callbacks.Push(std::move(callback));
+    }
+
+    void RemoveOnMapChangeEvent(size_t id) {
+      _on_map_change_callbacks.Remove(id);
+    }
+
+    size_t RegisterLightUpdateChangeEvent(std::function<void(WorldSnapshot)> callback) {
+      return _on_light_update_callbacks.Push(std::move(callback));
+    }
+
+    void RemoveLightUpdateChangeEvent(size_t id) {
+      _on_light_update_callbacks.Remove(id);
+    }
+
     void SetPedestriansCrossFactor(float percentage) {
       auto nav = _navigation.load();
       DEBUG_ASSERT(nav != nullptr);
       nav->SetPedestriansCrossFactor(percentage);
+    }
+
+    void AddPendingException(std::string e) {
+      _pending_exceptions = true;
+      _pending_exceptions_msg = e;
     }
 
   private:
@@ -91,19 +112,29 @@ namespace detail {
 
     void OnEpisodeStarted();
 
+    void OnEpisodeChanged();
+
     Client &_client;
 
     AtomicSharedPtr<const EpisodeState> _state;
 
     AtomicSharedPtr<WalkerNavigation> _navigation;
 
+    std::string _pending_exceptions_msg;
+
     CachedActorList _actors;
 
     CallbackList<WorldSnapshot> _on_tick_callbacks;
 
+    CallbackList<WorldSnapshot> _on_map_change_callbacks;
+
+    CallbackList<WorldSnapshot> _on_light_update_callbacks;
+
     RecurrentSharedFuture<WorldSnapshot> _snapshot;
 
     const streaming::Token _token;
+
+    bool _pending_exceptions = false;
   };
 
 } // namespace detail

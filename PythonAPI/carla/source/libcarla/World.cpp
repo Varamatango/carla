@@ -18,14 +18,6 @@ namespace client {
     return PrintList(out, actors);
   }
 
-  std::ostream &operator<<(std::ostream &out, const Timestamp &timestamp) {
-    out << "Timestamp(frame=" << std::to_string(timestamp.frame)
-        << ",elapsed_seconds=" << std::to_string(timestamp.elapsed_seconds)
-        << ",delta_seconds=" << std::to_string(timestamp.delta_seconds)
-        << ",platform_timestamp=" << std::to_string(timestamp.platform_timestamp) << ')';
-    return out;
-  }
-
   std::ostream &operator<<(std::ostream &out, const World &world) {
     out << "World(id=" << world.GetId() << ')';
     return out;
@@ -54,6 +46,11 @@ static auto WaitForTick(const carla::client::World &world, double seconds) {
 
 static size_t OnTick(carla::client::World &self, boost::python::object callback) {
   return self.OnTick(MakeCallback(std::move(callback)));
+}
+
+static auto Tick(carla::client::World &world, double seconds) {
+  carla::PythonUtil::ReleaseGIL unlock;
+  return world.Tick(TimeDurationFromSeconds(seconds));
 }
 
 static auto GetActorsById(carla::client::World &self, const boost::python::list &actor_ids) {
@@ -155,8 +152,11 @@ void export_world() {
     .def("wait_for_tick", &WaitForTick, (arg("seconds")=10.0))
     .def("on_tick", &OnTick, (arg("callback")))
     .def("remove_on_tick", &cc::World::RemoveOnTick, (arg("callback_id")))
-    .def("tick", CALL_WITHOUT_GIL(cc::World, Tick))
+    .def("tick", &Tick, (arg("seconds")=10.0))
     .def("set_pedestrians_cross_factor", CALL_WITHOUT_GIL_1(cc::World, SetPedestriansCrossFactor, float), (arg("percentage")))
+    .def("get_traffic_sign", CONST_CALL_WITHOUT_GIL_1(cc::World, GetTrafficSign, cc::Landmark), arg("landmark"))
+    .def("get_traffic_light", CONST_CALL_WITHOUT_GIL_1(cc::World, GetTrafficLight, cc::Landmark), arg("landmark"))
+    .def("get_lightmanager", CONST_CALL_WITHOUT_GIL(cc::World, GetLightManager))
     .def(self_ns::str(self_ns::self))
   ;
 
